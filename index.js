@@ -11,7 +11,9 @@ const app = express();
 const gga = require('@google/generative-ai');
 const Expenses = require("./models/Expenses");
 const Budget = require("./models/Budgets");
+const User = require("./models/User");
 const cors = require('cors');
+const Budgets = require('./models/Budgets');
 app.use(cors());
 const PORT = process.env.PORT || 3005;
 
@@ -43,22 +45,32 @@ app.post('/api/trainedmodel', async (req, res) => {
     console.log(response);
     let answer = response.answer;
     console.log(answer);
-    if(answer != "YES" && !prompt.toLowerCase().includes(answer.toLowerCase())) {
-        answer = '';
+    if (prompt.toLowerCase().includes("what") && prompt.toLowerCase().includes("my") && prompt.toLowerCase().includes("budget")) {
+        const budgetDoc = await Budget.findById(1); // ID is fixed to '1'
+        if (!budgetDoc) {
+            throw new Error('Budget document with ID 1 not found');
+        }
+        const budget = budgetDoc.budget;
+        const data2 = { response: { candidates: [{ content: { parts: [{ text: `The budget is ${budget}$` }] } }] } };
+
+        res.status(200).send(data2);
+        return;
     }
-    if (answer == '' || answer == null || answer == undefined || answer == 'LUN') {
+    if (answer == '' || answer == null || answer == undefined || answer == 'LUN') { 
+        const result = await betterCallGemini(prompt, true);
+        res.status(200).send(result);
+    } else if (answer != "YES" && !prompt.toLowerCase().includes(answer.toLowerCase())) {
+        answer = '';
         const result = await betterCallGemini(prompt, true);
         res.status(200).send(result);
     } else {
         if (answer === "YES") {
             const response2 = await betterCallGemini2(prompt);
-            // const result = extractJsonData(response);
             console.log("inside yes : ", JSON.stringify(response2));
-            await Expenses.create({data: response2});
+            await Expenses.create({ data: response2 });
             const data = arr[Math.floor(Math.random() * arr.length)];
-            
-            const data2 = { response : { candidates:[{content: { parts :[{text : data}]}}]}};
-            //data.response.candidates[0].content.parts[0].text
+
+            const data2 = { response: { candidates: [{ content: { parts: [{ text: data }] } }] } };
             res.status(200).send(data2);
         } else {
             const budgetDoc = await Budget.findById(1); // ID is fixed to '1'
@@ -69,41 +81,53 @@ app.post('/api/trainedmodel', async (req, res) => {
 
             const now = new Date();
             var last24Hours = now.getTime() - 24 * 60 * 60 * 1000;
-            if(answer === "TODAY"){
-                 last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-            }else if(answer === "MONTHLY"){
+            if (answer === "TODAY") {
+                last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            } else if (answer === "MONTHLY") {
                 last24Hours = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-            }else {
+            } else {
                 last24Hours = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
             }
 
             const expenses = await Expenses.find({
                 date: { $gte: last24Hours },
-            }).select() // Exclude the document ID (_id)
-            .sort({ date: 1 });
+            }).select()
+                .sort({ date: 1 });
 
-            const response = await betterCallGemini(`Generate detailed report for ${answer} data for user expenses and the budget is ${budget}, the report must contain all transactions(serial no, date(11-12-2024),type('debit or credit')),and print this net expense, debit total, credit total, Total budget after table leaving two line and must be displayed in tabular format & use these (|:-------------|:------------:|) for formatting and column spacing, data : ${expenses}`, true);
+            const response = await betterCallGemini(`Generate detailed report for ${answer} data for user expenses and the budget is ${budget}, the report must contain all transactions(serial no, date(11-12-2024),type('debit or credit')),and print this net expense, debit total, credit total, Total budget after table leaving two line spaces and must be displayed in tabular format & use these (|:-------------|:------------:|) for formatting and column spacing, data : ${expenses}`, true);
             console.log("Report REsponse :: ", response);
             res.status(200).send(response);
         }
     }
-    // console.log(response.answer);
 
 });
 
-function extractJsonData(input) {
-    // Remove the backticks and "json" label
-    const cleaned = input.replace(/```json|```/g, '').trim();
-  
-    // Parse the cleaned string into a JSON object
-    try {
-      return JSON.parse(cleaned);
-    } catch (error) {
-      console.error('Invalid JSON format:', error);
-      return null;
+app.post('/api/setBudget', async(req, res) => {
+    const budget = req.body.budget;
+    if (!budget) {
+        return res.status(400).json({ error: 'Missing required budget field' });
     }
-  }
+    try {
+        // Find if a budget document exists
+        const existingBudget = await Budget.findOne();
+    
+        if (existingBudget) {
+          // Update the budget
+          existingBudget.budget = budget;
+          await existingBudget.save();
+          res.send({ message: 'Budget updated successfully', budget: existingBudget });
+        } else {
+          // Create a new budget
+          const newBudget = await Budget.create({ budget });
+          res.status(200).send({ message: 'Budget set successfully', budget: newBudget });
+        }
+      } catch (error) {
+        console.error('Error setting budget:', error);
+        res.status(500).send({ error: 'Internal server error' });
+      }
+});
 
+//for first model call
 async function betterCallGemini(prompt, isNotQuery) {
 
     const result = await model.generateContent(prompt);
@@ -116,12 +140,13 @@ async function betterCallGemini(prompt, isNotQuery) {
 
 }
 
+//for second model call
 async function betterCallGemini2(prompt) {
 
     const result = await jsonModel.generateContent(prompt);
-    console.log("inside gemini 2 : ",result.response.candidates[0].content.parts[0].text);
-    console.log("inside gemini 2 : ",result.response.candidates[0].content);
-    console.log("inside gemini 2 : ",result.response.candidates[0].content.parts[0]);
+    console.log("inside gemini 2 : ", result.response.candidates[0].content.parts[0].text);
+    console.log("inside gemini 2 : ", result.response.candidates[0].content);
+    console.log("inside gemini 2 : ", result.response.candidates[0].content.parts[0]);
     return result.response.candidates[0].content.parts[0].text;
 
 }
@@ -173,22 +198,13 @@ app.post('/api/signin', async (req, res) => {
 });
 
 
-app.get('/', async (req, res) => {
-    const response = await nlp.process('en', 'i spent 50$ on groceries');
-    res.status(200).send(response.answer);
-})
-
-
-async function runNLP(prompt) {
-
-}
 (async () => {
     const container = await containerBootstrap();
     container.use(Nlp);
     container.use(LangEn);
     nlp = container.get('nlp');
     nlp.settings.autoSave = false;
-    // nlp.settings.threshold = 0.7;
+    nlp.settings.threshold = 0.7;
     nlp.addLanguage('en');
 
     // Adds the utterances and intents for the NLP
@@ -204,23 +220,49 @@ async function runNLP(prompt) {
     nlp.addDocument('en', 'I got %amount% from %category%', 'transaction.earned');
     nlp.addDocument('en', 'I spent %amount% buying %category%', 'transaction.spent');
     nlp.addDocument('en', 'I earned %amount% by selling %category%', 'transaction.earned');
+    nlp.addDocument('en', 'Add %amount% to portfolio', 'transaction.earned');
+    nlp.addDocument('en', 'Add %amount% to expense', 'transaction.earned');
+    nlp.addDocument('en', 'Subtract %amount% from portfolio', 'transaction.earned');
+    nlp.addDocument('en', 'subtract %amount% from expense', 'transaction.earned');
+
 
     nlp.addDocument('en', 'Give me the weekly report', 'report.weekly');
+    nlp.addDocument('en', 'Give me weekly report', 'report.weekly'); //yaha pe changes hai extra line hai
     nlp.addDocument('en', 'Show me the weekly report', 'report.weekly');
     nlp.addDocument('en', 'Can I see the report for this week?', 'report.weekly');
     // Add more variations for weekly...
 
     nlp.addDocument('en', 'Give me the monthly report', 'report.monthly');
+    nlp.addDocument('en', 'Give me monthly report', 'report.monthly'); //yaha pe changes hai extra line hai
     nlp.addDocument('en', 'Show me the monthly report', 'report.monthly');
     nlp.addDocument('en', 'What’s the summary for this month?', 'report.monthly');
+    nlp.addDocument('en', 'What’s the report for this month?', 'report.monthly'); //yaha pe changes hai extra line hai
     // Add more variations for monthly...
 
-    nlp.addDocument('en', 'Give me today’s report', 'report.today');
+    // Weekly
+    nlp.addDocument('en', 'Show me last week’s report', 'report.weekly');
+    nlp.addDocument('en', 'I need the report for the past week', 'report.weekly');
+    nlp.addDocument('en', 'What happened this week?', 'report.weekly');
+
+    // Monthly
+    nlp.addDocument('en', 'Give me a report for this month', 'report.monthly');
+    nlp.addDocument('en', 'I need a summary of the month', 'report.monthly');
+    nlp.addDocument('en', 'What’s the breakdown for the month?', 'report.monthly');
+
+    // Today
+    nlp.addDocument('en', 'What are today’s expenses?', 'report.today');
+    nlp.addDocument('en', 'Can you summarize today’s report?', 'report.today');
+    nlp.addDocument('en', 'What transactions happened today?', 'report.today');
+
+
+    nlp.addDocument('en', 'Give me today’s report', 'report.today'); //yaha pe changes hai extra line hai
+    nlp.addDocument('en', 'Give me the today’s report', 'report.today');
     nlp.addDocument('en', 'What are today’s transactions?', 'report.today');
     nlp.addDocument('en', 'Show me today’s report', 'report.today');
-    nlp.addDocument('en', 'What' , 'report.LUN');
-    nlp.addDocument('en', 'Can we buy stock' , 'report.LUN');
-    nlp.addDocument('en', 'will stock go up or down' , 'report.LUN');
+    nlp.addDocument('en', 'What', 'report.LUN'); //delete kar denge 
+    nlp.addDocument('en', 'Can we buy stock', 'report.LUN'); //delete kar denge
+    nlp.addDocument('en', 'will stock go up or down', 'report.LUN'); // delete kar denge 
+
     // Add more variations for today...
 
     nlp.addAnswer('en', 'report.weekly', "WEEKLY");
