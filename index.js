@@ -2,30 +2,30 @@ const { containerBootstrap } = require('@nlpjs/core');
 const { Nlp } = require('@nlpjs/nlp');
 const { LangEn } = require('@nlpjs/lang-en-min');
 
-const express = require('express');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const bodyParser = require('body-parser');
 require('dotenv').config();
-const app = express();
 const gga = require('@google/generative-ai');
 const Expenses = require("./models/Expenses");
 const Budget = require("./models/Budgets");
 const User = require("./models/User");
 const cors = require('cors');
 const Budgets = require('./models/Budgets');
+const express = require('express');
+const app = express();
 app.use(cors());
-const PORT = process.env.PORT || 3005;
-
 app.use(bodyParser.json());
 app.use(express.json());
+
+const PORT = process.env.PORT || 3005;
 
 let nlp = null;
 const password = encodeURIComponent(process.env.PASSWORD);
 const username = encodeURIComponent(process.env.DB_USERNAME);
 console.log(username, password);
 const uri = "mongodb+srv://" + username + ":" + password + "@cluster0.ghwhm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-mongoose.connect(uri)
+await mongoose.connect(uri)
     .then(() => console.log("Connected to MongoDB"))
     .catch(err => console.error("Error connecting to MongoDB", err));
 
@@ -198,7 +198,7 @@ app.post('/api/signin', async (req, res) => {
 });
 
 
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
     res.send('Hello, World!');
 })
 
