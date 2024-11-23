@@ -14,7 +14,13 @@ const cors = require('cors');
 const Budgets = require('./models/Budgets');
 const express = require('express');
 const app = express();
-app.use(cors());
+
+const corsOptions = {
+    origin: '*', // Allow all origins (can be replaced with a specific domain or array of domains)
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
+    allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
+};
+app.use(cors(corsOptions));
 app.use(bodyParser.json());
 app.use(express.json());
 
