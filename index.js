@@ -25,7 +25,7 @@ const password = encodeURIComponent(process.env.PASSWORD);
 const username = encodeURIComponent(process.env.DB_USERNAME);
 console.log(username, password);
 const uri = "mongodb+srv://" + username + ":" + password + "@cluster0.ghwhm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-await mongoose.connect(uri)
+mongoose.connect(uri)
     .then(() => console.log("Connected to MongoDB"))
     .catch(err => console.error("Error connecting to MongoDB", err));
 
