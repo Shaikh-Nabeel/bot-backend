@@ -198,6 +198,10 @@ app.post('/api/signin', async (req, res) => {
 });
 
 
+app.get('/', (req, res) => {
+    res.send('Hello, World!');
+})
+
 (async () => {
     const container = await containerBootstrap();
     container.use(Nlp);
