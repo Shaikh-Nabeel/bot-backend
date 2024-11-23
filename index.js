@@ -200,7 +200,7 @@ app.post('/api/signin', async (req, res) => {
 
 app.get('/', async (req, res) => {
     res.send('Hello, World!');
-})
+});
 
 (async () => {
     const container = await containerBootstrap();
