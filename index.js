@@ -40,7 +40,7 @@ mongoose.connect(uri)
 const genAI = new gga.GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 const model = genAI.getGenerativeModel({ model: "tunedModels/financial-advisor-djp15w8gggrf" });
 const jsonModel = genAI.getGenerativeModel({ model: "tunedModels/json-model-9ol75qko7yja" });
-const geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b"});
+const geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" });
 const arr = ["Got it, Noted", "Got it!", "Noted! Any other transactions?", "Fine, Got it!"];
 
 app.post('/api/trainedmodel', async (req, res) => {
@@ -64,7 +64,7 @@ app.post('/api/trainedmodel', async (req, res) => {
         res.status(200).send(data2);
         return;
     }
-    if (answer == '' || answer == null || answer == undefined || answer == 'LUN') { 
+    if (answer == '' || answer == null || answer == undefined || answer == 'LUN') {
         const result = await betterCallGemini(prompt, true);
         res.status(200).send(result);
     } else if (answer != "YES" && !prompt.toLowerCase().includes(answer.toLowerCase())) {
@@ -102,7 +102,34 @@ app.post('/api/trainedmodel', async (req, res) => {
             }).select()
                 .sort({ date: 1 });
 
-            const response = await betterCallOG(`Generate detailed report for ${answer} unstructured data for user expenses and the budget is ${budget}, the report must contain all transactions(serial no, date(11-12-2024),type('debit or credit')),and print net expense, debit total, credit total, Total budget after table leaving two line spaces and must be displayed in tabular format using 'markdown format' & use <br> to for line break and combine dataset of same category into one by adding all amount, Monthly unstructured data : ${expenses} and `, true);
+            const response = await betterCallOG(`Generate a detailed report in Markdown format for ${answer} unstructured data on user expenses. The budget is ${budget}.  
+The report should include:
+
+1. A table listing:
+   - Serial No.
+   - Date (formatted as '11-12-2024')
+   - Transaction Type ('debit' or 'credit')
+   - Category
+   - Combined Amount (for the same category)
+
+2. A summary section below the table with:
+   - Net Expense
+   - Total Debit 
+   - Total Credit 
+   - Remaining Budget 
+
+Use the following formatting guidelines:
+- Bold text: Use '**'.  
+- Italic text: Use '*'.  
+- Tables: Use '|' for columns and '-' for headers.  
+- Unordered lists: Use '-' for bullet points.  
+- Ordered lists: Use numbers followed by a period ('1.').  
+- Line breaks: Use two spaces followed by Enter.
+- Do not use any other tactics than this formatting.
+
+Data to analyze:  
+${answer} Unstructured Data: ${expenses} 
+`, true);
             // console.log("Report REsponse :: ", response);
             // console.log("query ::: ", resonse);
             res.status(200).send(response);
@@ -111,7 +138,7 @@ app.post('/api/trainedmodel', async (req, res) => {
 
 });
 
-app.post('/api/setBudget', async(req, res) => {
+app.post('/api/setBudget', async (req, res) => {
     const budget = req.body.budget;
     if (!budget) {
         return res.status(400).json({ error: 'Missing required budget field' });
@@ -119,21 +146,21 @@ app.post('/api/setBudget', async(req, res) => {
     try {
         // Find if a budget document exists
         const existingBudget = await Budget.findOne();
-    
+
         if (existingBudget) {
-          // Update the budget
-          existingBudget.budget = budget;
-          await existingBudget.save();
-          res.send({ message: 'Budget updated successfully', budget: existingBudget });
+            // Update the budget
+            existingBudget.budget = budget;
+            await existingBudget.save();
+            res.send({ message: 'Budget updated successfully', budget: existingBudget });
         } else {
-          // Create a new budget
-          const newBudget = await Budget.create({ budget });
-          res.status(200).send({ message: 'Budget set successfully', budget: newBudget });
+            // Create a new budget
+            const newBudget = await Budget.create({ budget });
+            res.status(200).send({ message: 'Budget set successfully', budget: newBudget });
         }
-      } catch (error) {
+    } catch (error) {
         console.error('Error setting budget:', error);
         res.status(500).send({ error: 'Internal server error' });
-      }
+    }
 });
 
 //for first model call
