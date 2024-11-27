@@ -102,15 +102,16 @@ app.post('/api/trainedmodel', async (req, res) => {
             }).select()
                 .sort({ date: 1 });
 
-            const response = await betterCallOG(`Generate a detailed report in Markdown format for ${answer} unstructured data on user expenses. The budget is ${budget}.  
+            const response = await betterCallOG(`You are professional Charted Accountant that answer question with professionalism, do not speak more unnecessarily just point to point, user asked you this question : 
+Generate a detailed report in Markdown format for ${answer} unstructured data on user expenses. The budget is ${budget}.  
 The report should include:
 
 1. A table listing:
    - Serial No.
    - Date (formatted as '11-12-2024')
-   - Transaction Type ('debit' or 'credit')
+   - Type ('debit' or 'credit')
    - Category
-   - Combined Amount (for the same category)
+   - Amount
 
 2. A summary section below the table with:
    - Net Expense
