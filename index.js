@@ -109,7 +109,7 @@ The report should include:
 1. A table listing:
    - Serial No.
    - Date (formatted as '11-12-2024')
-   - Type ('debit' or 'credit')
+   - Type ('debit for out' or 'credit for in')
    - Category
    - Amount
 
