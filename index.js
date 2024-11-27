@@ -40,6 +40,7 @@ mongoose.connect(uri)
 const genAI = new gga.GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 const model = genAI.getGenerativeModel({ model: "tunedModels/financial-advisor-djp15w8gggrf" });
 const jsonModel = genAI.getGenerativeModel({ model: "tunedModels/json-model-9ol75qko7yja" });
+const geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b"});
 const arr = ["Got it, Noted", "Got it!", "Noted! Any other transactions?", "Fine, Got it!"];
 
 app.post('/api/trainedmodel', async (req, res) => {
@@ -101,8 +102,9 @@ app.post('/api/trainedmodel', async (req, res) => {
             }).select()
                 .sort({ date: 1 });
 
-            const response = await betterCallGemini(`Generate detailed report for ${answer} data for user expenses and the budget is ${budget}, the report must contain all transactions(serial no, date(11-12-2024),type('debit or credit')),and print this net expense, debit total, credit total, Total budget after table leaving two line spaces and must be displayed in tabular format & use these (|:-------------|:------------:|) for formatting and column spacing, data : ${expenses}`, true);
-            console.log("Report REsponse :: ", response);
+            const response = await betterCallOG(`Generate detailed report for ${answer} unstructured data for user expenses and the budget is ${budget}, the report must contain all transactions(serial no, date(11-12-2024),type('debit or credit')),and print net expense, debit total, credit total, Total budget after table leaving two line spaces and must be displayed in tabular format using 'markdown format' & use <br> to for line break and combine dataset of same category into one by adding all amount, Monthly unstructured data : ${expenses} and `, true);
+            // console.log("Report REsponse :: ", response);
+            // console.log("query ::: ", resonse);
             res.status(200).send(response);
         }
     }
@@ -138,6 +140,18 @@ app.post('/api/setBudget', async(req, res) => {
 async function betterCallGemini(prompt, isNotQuery) {
 
     const result = await model.generateContent(prompt);
+    console.log(result.response.candidates[0].content.parts[0].text);
+    if (isNotQuery && result) {
+        return result;
+    } else {
+        return result.response.candidates[0].content.parts[0].text;
+    }
+
+}
+
+async function betterCallOG(prompt, isNotQuery) {
+
+    const result = await geminiModel.generateContent(prompt);
     console.log(result.response.candidates[0].content.parts[0].text);
     if (isNotQuery && result) {
         return result;
